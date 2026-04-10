@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBT Mopintar TKA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Desain Kaku & Resmi ala Ujian Pemerintah */
+        body { font-family: Arial, Helvetica, sans-serif; background-color: #f3f4f6; color: #111827; }
+        .surat-resmi { font-family: "Times New Roman", Times, serif; background-color: white; color: black; }
+        .btn-opsi { display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 10px; background-color: white; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; }
+        .btn-opsi.selected { background-color: #dbeafe; border-color: #2563eb; font-weight: bold; }
+        .hidden { display: none !important; }
+        .header-cbt { background-color: #1e3a8a; color: white; padding: 12px; text-align: center; font-weight: bold; border-bottom: 4px solid #facc15; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <div id="cooldownScreen" class="hidden fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6 text-center">
+        <h1 class="text-2xl font-bold text-red-600 mb-2">AKSES DITOLAK</h1>
+        <p class="text-gray-700 mb-4">Sistem mendeteksi Anda telah menyelesaikan Ujian TKA. Sesuai peraturan, ujian hanya dapat diulang kembali setelah 24 jam.</p>
+        <div id="countdownTimer" class="mt-4 text-xl font-bold text-gray-900 border p-3 bg-gray-100 w-full max-w-xs"></div>
+    </div>
+
+    <div id="warningModal" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center p-4">
+        <div class="bg-white max-w-sm w-full p-6 border-t-4 border-red-600 shadow-lg">
+            <h2 class="text-lg font-bold text-center mb-4 uppercase">Tata Tertib Ujian</h2>
+            <ul class="text-sm text-gray-700 list-decimal pl-5 mb-6 space-y-2">
+                <li>Waktu pengerjaan adalah 40 Menit.</li>
+                <li>Ujian tidak dapat dijeda atau diulang.</li>
+                <li>Nilai Kelulusan Minimum (KKM) adalah 75.</li>
+                <li>Dilarang membuka tab lain atau aplikasi lain.</li>
+            </ul>
+            <p id="waitText" class="text-center text-sm font-bold text-red-600 mb-4">Membaca tata tertib... (5)</p>
+            <button id="btnPaham" class="hidden w-full bg-blue-700 hover:bg-blue-800 text-white py-2 font-bold uppercase rounded">SAYA MENGERTI</button>
+        </div>
+    </div>
+
+    <div id="regSection" class="hidden flex-grow flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md border shadow-md">
+            <div class="header-cbt text-sm">Tes Kemampuan Akademik BY MOPINTAR</div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">NAMA LENGKAP PESERTA</label>
+                    <input type="text" id="inNama" class="w-full border border-gray-300 p-2 text-sm uppercase focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">ASAL SEKOLAH</label>
+                    <input type="text" id="inSmp" value="Asal Sekolah" class="w-full border border-gray-300 p-2 text-sm uppercase focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex gap-4 mb-6">
+                    <div class="w-1/3">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">UMUR</label>
+                        <input type="number" id="inUmur" class="w-full border border-gray-300 p-2 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div class="w-2/3">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">NISN</label>
+                        <input type="number" id="inNisn" class="w-full border border-gray-300 p-2 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <button onclick="prosesHubungkan()" class="w-full bg-green-600 text-white font-bold py-3 rounded text-sm hover:bg-green-700">LOGIN UJIAN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingServer" class="hidden flex-grow flex flex-col items-center justify-center p-4">
+        <div class="text-center bg-white p-8 border shadow-sm w-full max-w-sm">
+            <h2 class="text-lg font-bold mb-2">Menghubungkan ke Server...</h2>
+            <p class="text-sm text-gray-600 mb-4">Mohon tunggu, sedang memverifikasi data peserta.</p>
+            <div class="w-full bg-gray-200 h-2">
+                <div class="bg-blue-600 h-2 animate-pulse" style="width: 100%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="examSection" class="hidden flex-col h-screen">
+        <div class="header-cbt flex justify-between items-center px-4 py-3">
+            <div class="text-left text-xs">
+                <div>MATA PELAJARAN: TKA MATEMATIKA</div>
+                <div id="displayNama" class="font-normal uppercase"></div>
+            </div>
+            <div class="text-right text-sm">
+                <div class="font-normal text-yellow-300">SISA WAKTU</div>
+                <div id="timer" class="font-mono font-bold text-lg">40:00</div>
+            </div>
+        </div>
+        
+        <div class="flex-grow p-4 overflow-y-auto bg-gray-100">
+            <div class="bg-white border p-5 shadow-sm max-w-2xl mx-auto">
+                <div class="flex justify-between border-b pb-2 mb-4">
+                    <span class="font-bold text-sm">SOAL NO: <span id="currentNumber" class="text-blue-600 text-lg">1</span></span>
+                    <span class="text-xs text-gray-500">Pilihan Ganda</span>
+                </div>
+                <p id="question" class="text-sm md:text-base mb-6 leading-relaxed text-justify"></p>
+                <div id="options" class="space-y-2">
+                    </div>
+            </div>
+        </div>
+
+        <div class="bg-white border-t p-4 flex justify-between items-center max-w-2xl mx-auto w-full">
+            <span class="text-xs text-gray-500" id="progressText">Soal 1 dari 20</span>
+            <button id="btnNext" disabled onclick="nextQuestion()" class="bg-blue-600 text-white px-6 py-2 rounded text-sm font-bold opacity-50 cursor-not-allowed">SOAL SELANJUTNYA &raquo;</button>
+        </div>
+    </div>
+
+    <div id="loadingScore" class="hidden flex-grow flex flex-col items-center justify-center p-4">
+        <div class="text-center bg-white p-8 border shadow-sm w-full max-w-sm">
+            <h2 class="text-lg font-bold mb-2">Mengoreksi Jawaban...</h2>
+            <p class="text-sm text-gray-600 mb-4">Sistem sedang memproses hasil dan mengkalkulasi skor.</p>
+            <div id="timerCek" class="text-2xl font-mono font-bold text-blue-600 mb-4">03:00</div>
+            <button id="btnHasil" disabled onclick="tampilkanHasil()" class="w-full bg-gray-400 text-white py-2 rounded font-bold cursor-not-allowed">LIHAT HASIL AKHIR</button>
+        </div>
+    </div>
+
+    <div id="resultSection" class="hidden flex-grow flex flex-col items-center p-4 bg-gray-200">
+        <div class="w-full max-w-md bg-white border shadow-md p-6 mb-4 text-center">
+            <h2 class="text-lg font-bold mb-2 border-b pb-2">REKAPITULASI HASIL UJIAN</h2>
+            <div class="text-5xl font-bold my-4" id="scoreDisplay">0</div>
+            <div id="statusLulus" class="text-lg font-bold mb-2"></div>
+            <p id="pesanGagal" class="text-sm text-red-600 hidden">Nilai Anda di bawah KKM (75). Anda dinyatakan TIDAK LULUS simulasi.</p>
+        </div>
+
+        <div id="suratBox" class="hidden w-full max-w-md surat-resmi border-2 border-black p-6 shadow-lg text-sm leading-relaxed relative">
+            <div class="text-center border-b-2 border-black pb-3 mb-4">
+                <h1 class="font-bold text-lg uppercase">PANITIA SELEKSI AKADEMIK</h1>
+                <h2 class="font-bold text-base uppercase">MOPINTAR CLOUD SECURITY</h2>
+                <p class="text-xs">Program Simulasi Ujian TKA Matematika Tingkat SMP</p>
+            </div>
+            
+            <table class="w-full text-xs mb-4">
+                <tr><td class="w-20">Nomor</td><td>: 042/MOP/TKA/2026</td></tr>
+                <tr><td>Hal</td><td>: <span class="font-bold">Surat Keterangan Hasil Seleksi (SKHS)</span></td></tr>
+            </table>
+
+            <p class="mb-2 text-justify">Dengan hormat,</p>
+            <p class="mb-4 text-justify">Berdasarkan hasil evaluasi Ujian TKA Matematika yang diselenggarakan secara daring, Panitia Seleksi Mopintar Cloud menerangkan bahwa peserta:</p>
+            
+            <table class="w-full ml-4 mb-4 font-bold">
+                <tr><td class="w-24">Nama</td><td>: <span id="suratNama" class="uppercase"></span></td></tr>
+                <tr><td>Sekolah</td><td>: <span id="suratSmp" class="uppercase"></span></td></tr>
+                <tr><td>Skor Akhir</td><td>: <span id="suratSkor"></span> / 100</td></tr>
+            </table>
+
+            <p class="mb-4 text-justify">Telah dinyatakan <span class="font-bold underline">LULUS</span> dengan hasil pencapaian di atas KKM (75). Kami memberikan apresiasi tertinggi atas kemampuan akademis yang luar biasa ini.</p>
+            
+            <div class="mt-8 flex justify-end">
+                <div class="text-center">
+                    <p class="mb-12">Ditetapkan pada sistem,</p>
+                    <p class="font-bold underline">MOPINTAR CLUB</p>
+                    <p class="text-xs">Admin Sistem Utama</p>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="location.reload()" class="mt-6 bg-gray-800 text-white px-6 py-2 rounded text-sm font-bold shadow hover:bg-gray-900">KEMBALI KE BERANDA</button>
+    </div>
+
+    <script>
+        // DATA SOAL (Diacak & Valid) - 20 Soal x 5 Poin = 100
+        const bankSoal = [
+            { q: "Jika 3x + 7 = 22, maka nilai dari 2x - 3 adalah...", a: ["9", "11", "5", "7"], c: 3 }, // x=5 -> 2(5)-3=7 (D)
+            { q: "Himpunan penyelesaian dari x² - 5x + 6 = 0 adalah...", a: ["{-1, -6}", "{2, 3}", "{-2, -3}", "{1, 6}"], c: 1 }, // (B)
+            { q: "Sebuah dadu dilempar sekali. Peluang munculnya mata dadu bilangan prima adalah...", a: ["1/6", "1/3", "1/2", "2/3"], c: 2 }, // (C)
+            { q: "Bentuk sederhana dari (2³ x 2⁴) / 2⁵ adalah...", a: ["2", "4", "8", "16"], c: 1 }, // (B)
+            { q: "Gradien garis yang melalui titik (2, 3) dan (4, 7) adalah...", a: ["1/2", "-2", "4", "2"], c: 3 }, // (D)
+            { q: "Jika f(x) = 3x - 5, maka nilai dari f(4) + f(-2) adalah...", a: ["-4", "7", "-11", "11"], c: 0 }, // (A)
+            { q: "Luas permukaan kubus dengan panjang rusuk 5 cm adalah...", a: ["125 cm²", "100 cm²", "150 cm²", "25 cm²"], c: 2 }, // (C)
+            { q: "Median dari data berikut: 6, 8, 5, 7, 6, 9, 7 adalah...", a: ["6", "6.5", "8", "7"], c: 3 }, // (D)
+            { q: "Hasil kali dari (√2 + √3)(√2 - √3) adalah...", a: ["-5", "1", "-1", "5"], c: 2 }, // (C)
+            { q: "Suku ke-20 dari barisan aritmatika 3, 7, 11, 15... adalah...", a: ["83", "79", "75", "80"], c: 1 }, // (B)
+            { q: "Besar sudut penyiku dari 35 derajat adalah...", a: ["45°", "55°", "145°", "65°"], c: 1 }, // (B)
+            { q: "Jika x dan y penyelesaian dari 2x+y=5 dan x-y=1, maka nilai x+y adalah...", a: ["5", "2", "1", "3"], c: 3 }, // (D)
+            { q: "Volume kerucut dengan r=7 cm dan t=6 cm (phi=22/7) adalah...", a: ["308 cm³", "154 cm³", "616 cm³", "924 cm³"], c: 0 }, // (A)
+            { q: "Banyaknya himpunan bagian dari A = {a, b, c} adalah...", a: ["3", "6", "8", "9"], c: 2 }, // (C)
+            { q: "Harga 3 buku Rp 15.000. Harga 1 lusin buku adalah...", a: ["Rp 45.000", "Rp 60.000", "Rp 75.000", "Rp 120.000"], c: 1 }, // (B)
+            { q: "Panjang diagonal ruang balok dengan p=12, l=3, t=4 adalah...", a: ["15", "17", "19", "13"], c: 3 }, // (D)
+            { q: "Persamaan kuadrat yang akar-akarnya -2 dan 5 adalah...", a: ["x² - 3x - 10 = 0", "x² + 3x - 10 = 0", "x² - 3x + 10 = 0", "x² + 3x + 10 = 0"], c: 0 }, // (A)
+            { q: "Hasil dari Sin 30° dikali Cos 60° adalah...", a: ["1/2", "1/4", "1", "0"], c: 1 }, // (B)
+            { q: "Jika jari-jari lingkaran = 10 cm, maka luas lingkaran (phi=3.14) adalah...", a: ["31.4 cm²", "62.8 cm²", "157 cm²", "314 cm²"], c: 3 }, // (D)
+            { q: "Tiga koin dilempar bersama. Peluang muncul tepat 2 angka adalah...", a: ["1/8", "1/4", "3/8", "1/2"], c: 2 } // (C)
+        ];
+
+        let currentIdx = 0;
+        let score = 0;
+        let userAnswers = [];
+        let examTimer;
+        let examTimeLeft = 40 * 60; // 40 Menit
+
+        // 1. SISTEM COOLDOWN 24 JAM
+        window.onload = () => {
+            const lastExam = localStorage.getItem('mopintar_tka_last');
+            if (lastExam) {
+                const diff = Date.now() - parseInt(lastExam);
+                if (diff < 24 * 60 * 60 * 1000) {
+                    showCooldown(24 * 60 * 60 * 1000 - diff);
+                    return;
+                }
+            }
+            startWarning();
+        };
+
+        function showCooldown(ms) {
+            document.getElementById('cooldownScreen').classList.remove('hidden');
+            const timerDiv = document.getElementById('countdownTimer');
+            setInterval(() => {
+                ms -= 1000;
+                let h = Math.floor(ms / 3600000);
+                let m = Math.floor((ms % 3600000) / 60000);
+                let s = Math.floor((ms % 60000) / 1000);
+                timerDiv.innerText = `${h} Jam : ${m} Menit : ${s} Detik`;
+                if(ms <= 0) location.reload();
+            }, 1000);
+        }
+
+        // 2. MODAL PERINGATAN (5 DETIK)
+        function startWarning() {
+            let wait = 5;
+            const waitP = document.getElementById('waitText');
+            const btn = document.getElementById('btnPaham');
+            const timer = setInterval(() => {
+                wait--;
+                waitP.innerText = `Membaca tata tertib... (${wait})`;
+                if (wait <= 0) {
+                    clearInterval(timer);
+                    waitP.classList.add('hidden');
+                    btn.classList.remove('hidden');
+                }
+            }, 1000);
+        }
+
+        document.getElementById('btnPaham').onclick = () => {
+            document.getElementById('warningModal').classList.add('hidden');
+            document.getElementById('regSection').classList.remove('hidden');
+        };
+
+        // 3. LOGIN & SERVER LOADING (10 DETIK)
+        function prosesHubungkan() {
+            const n = document.getElementById('inNama').value;
+            const s = document.getElementById('inSmp').value;
+            if (!n || !s) return alert("DATA TIDAK LENGKAP. HARAP ISI NAMA DAN SEKOLAH.");
+            
+            document.getElementById('displayNama').innerText = "PESERTA: " + n;
+            document.getElementById('regSection').classList.add('hidden');
+            document.getElementById('loadingServer').classList.remove('hidden');
+            
+            setTimeout(() => {
+                document.getElementById('loadingServer').classList.add('hidden');
+                startExam();
+            }, 10000); // 10 Detik
+        }
+
+        // 4. SISTEM CBT
+        const hurufOpsi = ['A', 'B', 'C', 'D'];
+
+        function startExam() {
+            document.getElementById('examSection').classList.remove('hidden');
+            document.getElementById('examSection').classList.add('flex');
+            loadQuestion();
+            examTimer = setInterval(() => {
+                examTimeLeft--;
+                let m = Math.floor(examTimeLeft / 60);
+                let s = examTimeLeft % 60;
+                document.getElementById('timer').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+                if (examTimeLeft <= 0) finishExam();
+            }, 1000);
+        }
+
+        function loadQuestion() {
+            const q = bankSoal[currentIdx];
+            document.getElementById('currentNumber').innerText = currentIdx + 1;
+            document.getElementById('progressText').innerText = `Soal ${currentIdx + 1} dari 20`;
+            document.getElementById('question').innerText = q.q;
+            
+            const optDiv = document.getElementById('options');
+            optDiv.innerHTML = '';
+            
+            q.a.forEach((text, i) => {
+                const btn = document.createElement('button');
+                btn.className = "btn-opsi";
+                btn.innerHTML = `<span class="font-bold mr-2">${hurufOpsi[i]}.</span> ${text}`;
+                btn.onclick = () => selectOption(i, btn);
+                optDiv.appendChild(btn);
+            });
+            
+            const btnNxt = document.getElementById('btnNext');
+            btnNxt.disabled = true;
+            btnNxt.classList.add('opacity-50', 'cursor-not-allowed');
+            btnNxt.classList.remove('hover:bg-blue-700');
+        }
+
+        function selectOption(idx, el) {
+            document.querySelectorAll('.btn-opsi').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected');
+            userAnswers[currentIdx] = idx;
+            
+            const btnNxt = document.getElementById('btnNext');
+            btnNxt.disabled = false;
+            btnNxt.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnNxt.classList.add('hover:bg-blue-700');
+        }
+
+        function nextQuestion() {
+            currentIdx++;
+            if (currentIdx < bankSoal.length) {
+                loadQuestion();
+            } else {
+                finishExam();
+            }
+        }
+
+        // 5. KOREKSI JAWABAN (3 MENIT)
+        function finishExam() {
+            clearInterval(examTimer);
+            localStorage.setItem('mopintar_tka_last', Date.now().toString()); // Simpan Data Cooldown
+            
+            document.getElementById('examSection').classList.remove('flex');
+            document.getElementById('examSection').classList.add('hidden');
+            document.getElementById('loadingScore').classList.remove('hidden');
+            
+            // Hitung Poin (1 Soal = 5 Poin)
+            score = 0;
+            userAnswers.forEach((ans, i) => {
+                if (ans === bankSoal[i].c) score += 5;
+            });
+
+            // Timer 3 Menit (180 Detik)
+            let waitCek = 180;
+            const timerCekEl = document.getElementById('timerCek');
+            const btnH = document.getElementById('btnHasil');
+
+            const cekTimer = setInterval(() => {
+                waitCek--;
+                let m = Math.floor(waitCek / 60);
+                let s = waitCek % 60;
+                timerCekEl.innerText = `0${m}:${s < 10 ? '0'+s : s}`;
+                
+                if (waitCek <= 0) {
+                    clearInterval(cekTimer);
+                    timerCekEl.innerText = "SELESAI!";
+                    btnH.disabled = false;
+                    btnH.classList.replace('bg-gray-400', 'bg-blue-700');
+                    btnH.classList.replace('cursor-not-allowed', 'hover:bg-blue-800');
+                }
+            }, 1000);
+        }
+
+        // 6. HASIL & SURAT PENGHARGAAN (KKM 75)
+        function tampilkanHasil() {
+            document.getElementById('loadingScore').classList.add('hidden');
+            document.getElementById('resultSection').classList.remove('hidden');
+            
+            const n = document.getElementById('inNama').value;
+            const s = document.getElementById('inSmp').value;
+            
+            document.getElementById('scoreDisplay').innerText = score;
+            const statusLulus = document.getElementById('statusLulus');
+
+            if (score >= 75) {
+                // LULUS (Tampilkan Surat)
+                document.getElementById('scoreDisplay').classList.add('text-green-600');
+                statusLulus.innerText = "LULUS KKM";
+                statusLulus.classList.add('text-green-600');
+                
+                document.getElementById('suratBox').classList.remove('hidden');
+                document.getElementById('suratNama').innerText = n;
+                document.getElementById('suratSmp').innerText = s;
+                document.getElementById('suratSkor').innerText = score;
+                
+            } else {
+                // GAGAL
+                document.getElementById('scoreDisplay').classList.add('text-red-600');
+                statusLulus.innerText = "TIDAK LULUS";
+                statusLulus.classList.add('text-red-600');
+                document.getElementById('pesanGagal').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
+
